@@ -24,7 +24,7 @@ public class WebSocketEventListener {
             log.info("user disconnected: {}", username);
             var chatMessage = ChatMessage.builder()
                     .type(ChatMessage.MessageType.LEAVE)
-                    .sender(username)
+                    .senderId(username)
                     .build();
             messagingTemplate.convertAndSend("/topic/public", chatMessage);
         }
