@@ -16,7 +16,6 @@ import org.springframework.stereotype.Controller;
 public class ChatController {
     /**
      * Registers a user for chat.
-     *
      * param chatMessage The chat message containing the sender's information.
      * param headerAccessor The SimpMessageHeaderAccessor object used to access session attributes.
      * return The registered chat message.
@@ -30,9 +29,9 @@ public class ChatController {
 
     /**
      * Sends a chat message to all connected users.
-     *
+     * <pre></pre>
      * param chatMessage The chat message to be sent.
-     * return The sent chat message.
+     * return the send chat message.
      */
     @MessageMapping("/chat.send")
     @SendTo("/topic/public")

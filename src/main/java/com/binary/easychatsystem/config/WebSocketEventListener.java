@@ -22,11 +22,11 @@ public class WebSocketEventListener {
         String username = (String) headerAccessor.getSessionAttributes().get("username");
         if (username != null) {
             log.info("user disconnected: {}", username);
-            var chatMessage = ChatMessage.builder()
-                    .type(ChatMessage.MessageType.LEAVE)
-                    .senderId(username)
-                    .build();
-            messagingTemplate.convertAndSend("/topic/public", chatMessage);
+//            var chatMessage = ChatMessage.builder()
+//                    .type(ChatMessage.MessageType.LEAVE)
+//                    .senderId(username)
+//                    .build();
+//            messagingTemplate.convertAndSend("/topic/public", chatMessage);
         }
     }
 }
