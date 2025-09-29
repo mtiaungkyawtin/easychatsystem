@@ -1,5 +1,6 @@
 package com.binary.easychatsystem.controller;
 
+import com.binary.easychatsystem.dto.UserRequestDTO;
 import com.binary.easychatsystem.model.User;
 import com.binary.easychatsystem.service.UserService;
 import jakarta.validation.Valid;
@@ -24,7 +25,10 @@ public class UserController {
     }
 
     @PostMapping
-    public ResponseEntity<User> createUser(@Valid @RequestBody User user) {
+    public ResponseEntity<User> createUser(@RequestBody UserRequestDTO data) {
+        User user = new User();
+        user.setUsername(data.getUsername());
+        user.setFullName(data.getFullName());
         User createdUser = userService.createUser(user);
         return ResponseEntity.status(HttpStatus.CREATED).body(createdUser);
     }

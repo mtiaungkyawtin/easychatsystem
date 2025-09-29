@@ -1,12 +1,17 @@
 package com.binary.easychatsystem.service.impl;
 
+import com.binary.easychatsystem.dto.SendMessageRequest;
 import com.binary.easychatsystem.model.*;
 import com.binary.easychatsystem.repository.ChatConversationParticipantRepository;
+import com.binary.easychatsystem.repository.ChatConversationRepository;
 import com.binary.easychatsystem.repository.ChatMessageRepository;
 import com.binary.easychatsystem.repository.UserRepository;
 import com.binary.easychatsystem.service.ChatMessageService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
@@ -19,82 +24,74 @@ import java.util.Optional;
 public class ChatMessageServiceImpl implements ChatMessageService {
 
     private final ChatMessageRepository chatMessageRepository;
+    private final ChatConversationRepository conversationRepository;
     private final ChatConversationParticipantRepository participantRepository;
     private final UserRepository userRepository;
-    private final SimpMessagingTemplate messagingTemplate;
 
     @Override
     public List<ChatMessage> findAllMessage() {
-        return chatMessageRepository.findAll();
+        return List.of();
     }
 
     @Override
     public ChatMessage findMessageByID(Long id) {
-        Optional<ChatMessage> opt = chatMessageRepository.findById(id);
-        return opt.orElse(null);
+        return null;
     }
 
     @Override
     public void addMessage(ChatMessage data) {
-        chatMessageRepository.save(data);
+
     }
 
     @Override
     public void deleteAll() {
-        chatMessageRepository.deleteAll();
+
     }
 
     @Override
     public void deleteById(Long id) {
-        chatMessageRepository.deleteById(id);
+
     }
 
+    @Override
+    public ChatMessage sendMessage(SendMessageRequest request) {
+        ChatConversation conversation = conversationRepository.findById(request.getConversationId())
+                .orElseThrow(() -> new RuntimeException("Conversation not found"));
 
-    @Transactional
-    public ChatConversation createDirectConversation(Long userAId, Long userBId, Long createdById) {
-        User userA = userRepository.findById(userAId).orElseThrow();
-        User userB = userRepository.findById(userBId).orElseThrow();
-        User creator = userRepository.findById(createdById).orElseThrow();
-
-        ChatConversation conv = new ChatConversation();
-        conv.setType(ChatConversation.ConversationType.DIRECT);
-        conv.setCreatedBy(creator);
-     //   conv = conversationRepository.save(conv);
-
-        addParticipant(conv.getConversationId(), userA.getUserId());
-        addParticipant(conv.getConversationId(), userB.getUserId());
-        return conv;
-    }
-
-    @Transactional
-    public ChatConversation createGroupConversation(String title, Long creatorId, List<Long> memberIds) {
-        User creator = userRepository.findById(creatorId).orElseThrow();
-
-        ChatConversation conv = new ChatConversation();
-        conv.setType(ChatConversation.ConversationType.GROUP);
-        conv.setTitle(title);
-        conv.setCreatedBy(creator);
-      //  conv = conversationRepo.save(conv);
-
-        addParticipant(conv.getConversationId(), creatorId);
-        for (Long uid : memberIds) {
-            if (!uid.equals(creatorId)) addParticipant(conv.getConversationId(), uid);
+        // Verify sender is participant
+        if (!participantRepository.existsByConversationIdAndUserId(request.getConversationId(), request.getSenderId())) {
+            throw new RuntimeException("User is not a participant in this conversation");
         }
-        return conv;
+
+        ChatMessage message = ChatMessage.builder()
+                .content(request.getContent())
+                .mediaType(ChatMessage.MediaType.TEXT) // Determine from request
+                .mediaUrl(request.getMediaUrl())
+                .mediaMime(request.getMediaMime())
+                .mediaSize(request.getMediaSize())
+                .senderId(String.valueOf(request.getSenderId()))
+                .recipientId(request.getRecipientId() != null ? String.valueOf(request.getRecipientId()) : null)
+                .type(ChatMessage.MessageType.CHAT)
+                .status(ChatMessage.MessageStatus.SENT)
+                .conversation(conversation)
+                .build();
+        System.out.println("Saving message: " + message.toString());
+        return chatMessageRepository.save(message);
     }
 
-    @Transactional
-    public void addParticipant(Long conversationId, Long userId) {
-//        ChatConversation conv = participantRepository.findById(conversationId).orElseThrow();
-//        User user = userRepository.findById(userId).orElseThrow();
+    @Override
+    public List<ChatMessage> getConversationMessages(Long conversationId, Long userId, int page, int size) {
+        // Verify user has access to conversation
+        if (!participantRepository.existsByConversationIdAndUserId(conversationId, userId)) {
+            throw new RuntimeException("Access denied");
+        }
 
-//        if (!participantRepository.existsByConversationAndUser(conv, user)) {
-//            ChatConversationParticipant participant = new ChatConversationParticipant();
-//            ChatConversationParticipantId id = new ChatConversationParticipantId(conversationId, userId);
-//            participant.setId(id);
-//            participant.setConversation(conv);
-//            participant.setUser(user);
-//            participantRepo.save(participant);
-//        }
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        return chatMessageRepository.findByConversation_ConversationIdOrderByCreatedAtDesc(conversationId, pageable);
+    }
+
+    @Override
+    public void markMessagesAsRead(Long conversationId, Long userId) {
+        chatMessageRepository.markMessagesAsRead(conversationId, String.valueOf(userId));
     }
 }

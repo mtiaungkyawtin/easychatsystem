@@ -1,41 +1,80 @@
 package com.binary.easychatsystem.controller;
 
+import com.binary.easychatsystem.dto.ReadReceiptRequest;
+import com.binary.easychatsystem.dto.SendMessageRequest;
+import com.binary.easychatsystem.dto.TypingRequest;
 import com.binary.easychatsystem.model.ChatMessage;
-import lombok.RequiredArgsConstructor;
+import com.binary.easychatsystem.service.ChatMessageService;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
-import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
+import lombok.RequiredArgsConstructor;
+
+import java.util.Map;
+import java.util.Objects;
 
 /**
  * Controller class for handling chat-related functionality.
  */
+@SuppressWarnings("unused")
 @Controller
 @RequiredArgsConstructor
 public class ChatController {
+
+    private final ChatMessageService chatMessageService;
+    private final SimpMessagingTemplate messagingTemplate;
+
     /**
-     * Registers a user for chat.
-     * param chatMessage The chat message containing the sender's information.
-     * param headerAccessor The SimpMessageHeaderAccessor object used to access session attributes.
-     * return The registered chat message.
+     * Register user for WebSocket session
      */
     @MessageMapping("/chat.register")
-    @SendTo("/topic/public")
-    public ChatMessage register(@Payload ChatMessage chatMessage, SimpMessageHeaderAccessor headerAccessor) {
-        headerAccessor.getSessionAttributes().put("username", chatMessage.getSenderId());
-        return chatMessage;
+    public void register(@Payload ChatMessage chatMessage, SimpMessageHeaderAccessor headerAccessor) {
+        Objects.requireNonNull(headerAccessor.getSessionAttributes()).put("username", chatMessage.getSenderId());
+        headerAccessor.getSessionAttributes().put("userId", chatMessage.getSenderId());
     }
 
     /**
-     * Sends a chat message to all connected users.
-     * <pre></pre>
-     * param chatMessage The chat message to be sent.
-     * return the send chat message.
+     * Send message to specific conversation
      */
     @MessageMapping("/chat.send")
-    @SendTo("/topic/public")
-    public ChatMessage sendMessage(@Payload ChatMessage chatMessage) {
-        return chatMessage;
+    public void sendMessage(@Payload SendMessageRequest messageRequest) {
+        ChatMessage savedMessage = chatMessageService.sendMessage(messageRequest);
+
+        // Broadcast to conversation participants
+        messagingTemplate.convertAndSend("/topic/conversation." + messageRequest.getConversationId(), savedMessage);
+
+        // Send delivery status to sender
+        messagingTemplate.convertAndSendToUser(
+                savedMessage.getSenderId(),
+                "/queue/message.status",
+                Map.of("messageId", savedMessage.getMessageId(), "status", "SENT")
+        );
+    }
+
+    /**
+     * Handle typing indicators
+     */
+    @MessageMapping("/chat.typing")
+    public void handleTyping(@Payload TypingRequest typingRequest) {
+        messagingTemplate.convertAndSend(
+                "/topic/conversation." + typingRequest.getConversationId() + ".typing",
+                typingRequest
+        );
+    }
+
+    /**
+     * Handle message read receipts
+     */
+    @MessageMapping("/chat.read")
+    public void handleReadReceipt(@Payload ReadReceiptRequest readRequest) {
+        chatMessageService.markMessagesAsRead(readRequest.getConversationId(), readRequest.getUserId());
+
+        // Notify other participants that messages were read
+        messagingTemplate.convertAndSend(
+                "/topic/conversation." + readRequest.getConversationId(),
+                Map.of("type", "READ_RECEIPT", "readerId", readRequest.getUserId(), "conversationId", readRequest.getConversationId())
+        );
     }
 }
