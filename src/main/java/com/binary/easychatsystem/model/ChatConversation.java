@@ -1,5 +1,6 @@
 package com.binary.easychatsystem.model;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -27,15 +28,16 @@ public class ChatConversation {
     private ConversationType type;
     private String title;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "created_by_user_id")
-    private User createdBy;
+    @Column(nullable = false)
+    private Long createdBy;
 
     @Column(nullable = false)
     private LocalDateTime createdAt;
 
+    // One-to-Many: conversation contains many messages
     @OneToMany(mappedBy = "conversation", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<ChatConversationParticipant> participants = new ArrayList<>();
+    @JsonManagedReference("conversation-messages")
+    private List<ChatMessage> messages = new ArrayList<>();
 
     @PrePersist
     public void prePersist() {

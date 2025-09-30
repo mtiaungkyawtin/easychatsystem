@@ -9,6 +9,8 @@ import com.binary.easychatsystem.repository.UserRepository;
 import com.binary.easychatsystem.service.ChatMessageService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -22,7 +24,7 @@ import java.util.Optional;
 @RequiredArgsConstructor
 @Transactional
 public class ChatMessageServiceImpl implements ChatMessageService {
-
+    private static final Logger logger = LoggerFactory.getLogger(ChatMessageServiceImpl.class);
     private final ChatMessageRepository chatMessageRepository;
     private final ChatConversationRepository conversationRepository;
     private final ChatConversationParticipantRepository participantRepository;
@@ -75,7 +77,7 @@ public class ChatMessageServiceImpl implements ChatMessageService {
                 .status(ChatMessage.MessageStatus.SENT)
                 .conversation(conversation)
                 .build();
-        System.out.println("Saving message: " + message.toString());
+        logger.info("Saving message: {}", message.toString());
         return chatMessageRepository.save(message);
     }
 
@@ -87,7 +89,9 @@ public class ChatMessageServiceImpl implements ChatMessageService {
         }
 
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-        return chatMessageRepository.findByConversation_ConversationIdOrderByCreatedAtDesc(conversationId, pageable);
+        var res =chatMessageRepository.findByConversation_ConversationIdOrderByCreatedAtDesc(conversationId, pageable);
+        logger.info("return result: {}", res.toString());
+        return res;
     }
 
     @Override

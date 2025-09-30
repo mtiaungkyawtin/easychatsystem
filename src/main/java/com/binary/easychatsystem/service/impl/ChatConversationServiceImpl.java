@@ -10,6 +10,8 @@ import com.binary.easychatsystem.repository.UserRepository;
 import com.binary.easychatsystem.service.ChatConversationService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -19,13 +21,14 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Transactional
 public class ChatConversationServiceImpl implements ChatConversationService {
+    private static final Logger logger = LoggerFactory.getLogger(ChatConversationServiceImpl.class);
     private final ChatConversationRepository conversationRepository;
     private final ChatConversationParticipantRepository participantRepository;
     private final UserRepository userRepository;
 
     @Override
     public List<ConversationDTO> getUserConversations(Long userId) {
-        List<ChatConversation> conversations = conversationRepository.findUserConversations(userId);
+        List<ChatConversation> conversations = conversationRepository.getConversationsByUserId(userId);
         return conversations.stream().map(this::convertToDTO).collect(Collectors.toList());
     }
 
@@ -33,14 +36,17 @@ public class ChatConversationServiceImpl implements ChatConversationService {
     public ConversationDTO createConversation(CreateConversationRequest request, Long creatorId) {
         ChatConversation conversation = new ChatConversation();
         conversation.setType(request.getType());
-        conversation.setCreatedBy(userRepository.findById(creatorId).orElseThrow());
+        conversation.setCreatedBy(creatorId);
+        //conversation.setCreatedBy(userRepository.findById(creatorId).orElseThrow());
 
         if (request.getType() == ChatConversation.ConversationType.GROUP) {
             conversation.setTitle(request.getTitle());
         } else {
-            conversation.setTitle(null); // DIRECT conversations don't have titles
+            var recipient = userRepository.findById(request.getRecipientId());
+            if(recipient.isPresent()) {
+                conversation.setTitle(recipient.get().getFullName()); // DIRECT conversations don't have titles
+            }
         }
-
         conversation = conversationRepository.save(conversation);
 
         // Add participants
@@ -61,7 +67,7 @@ public class ChatConversationServiceImpl implements ChatConversationService {
     }
 
     private void addParticipant(Long conversationId, Long userId) {
-        if (!participantRepository.existsByConversationIdAndUserId(conversationId, userId)) {
+        if (!participantRepository.isUserParticipant(conversationId, userId)) {
             ChatConversationParticipant participant = new ChatConversationParticipant();
             participant.setConversationId(conversationId);
             participant.setUserId(userId);

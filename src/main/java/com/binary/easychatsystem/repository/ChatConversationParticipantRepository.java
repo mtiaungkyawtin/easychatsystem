@@ -12,5 +12,10 @@ public interface ChatConversationParticipantRepository extends JpaRepository<Cha
 
     boolean existsByConversationIdAndUserId(Long conversationId, Long userId);
 
-    List<ChatConversationParticipant> findByConversationId(Long conversationId);
+    // Add more descriptive method names
+    default boolean isUserParticipant(Long conversationId, Long userId) {
+        return existsByConversationIdAndUserId(conversationId, userId);
+    }
+
+//    List<ChatConversationParticipant> findByConversationId(Long conversationId);
 }

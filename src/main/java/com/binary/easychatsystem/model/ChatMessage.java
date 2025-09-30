@@ -1,8 +1,11 @@
 package com.binary.easychatsystem.model;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.io.Serial;
+import java.io.Serializable;
 import java.time.LocalDateTime;
 
 /**
@@ -21,7 +24,9 @@ import java.time.LocalDateTime;
                 @Index(name = "ix_message_sender_created_at", columnList = "sender_id, createdAt"),
                 @Index(name = "ix_message_status", columnList = "status")
         })
-public class ChatMessage {
+public class ChatMessage implements Serializable {
+    @Serial
+    private static final long serialVersionUID = 1L;
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "message_id")
@@ -53,6 +58,7 @@ public class ChatMessage {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "conversation_id", nullable = false)
+    @JsonBackReference("conversation-messages")
     private ChatConversation conversation;
 
     /**
